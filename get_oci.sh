@@ -13,6 +13,8 @@ type_of_element in :
 	seclists
 	jcs_instances
 	dbas_instances
+	private_ips
+	ips_by_subnet
 and detail in:
 	all
 	elementId
@@ -24,14 +26,25 @@ if [ -z $1 ]; then
 	exit 1
 fi
 
-if [ -z $2 ]; then
-	echo $usage
-	exit 1
-else
-	selector=$2
-fi
-
+selector=$2
 type_of_element=$1
+
+get_ips()
+{
+	vnics=$(node get_all_vnicAttachments.js | jq '.[] | {vnic: .vnicId}' | grep vnic | awk '{print $2}' | tr -d '\"')
+	for vnic in $vnics; do
+		# echo $vnic
+		node get_all_privateIps.js $vnic | jq '.[] | {displayName: .displayName, ipAddress: .ipAddress}'
+	done
+}
+
+ips_by_subnet()
+{
+	subnets=$(node get_all_subnets.js | jq '.[] | {id: .id}' | grep id | awk '{print $2}' | tr -d '\"')
+	for subnet in $subnets; do
+		node get_all_privateIps_by_subnet.js $subnet | jq '.[] | {subnetId: .subnetId, hostnameLabel: .hostnameLabel, ipAddress: .ipAddress}'
+	done
+}
 
 case $type_of_element in
 	instances ) node get_instances.js $selector | jq '.';;
@@ -40,4 +53,7 @@ case $type_of_element in
 	seclists  ) node get_seclists.js $selector | jq '.';;
 	jcs_instances ) node get_jcsinstances.js $selector | jq '.';;
 	dbas_instances ) node get_dbaasinstances.js $selector | jq '.';;
+	private_ips ) get_ips;;
+	ips_by_subnet ) ips_by_subnet;;
 esac
+
